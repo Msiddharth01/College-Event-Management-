@@ -1,0 +1,36 @@
+{
+  "name": "college-event-management-backend",
+  "version": "1.0.0",
+  "description": "Backend foundation for College Event Management System",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "ts-node-dev --transpile-only src/scripts/seed.ts",
+    "test:api": "ts-node-dev --transpile-only src/scripts/testApi.ts",
+    "verify:conflict": "ts-node-dev --transpile-only src/scripts/verifyEventConflict.ts",
+    "verify:capacity": "ts-node-dev --transpile-only src/scripts/verifyRegistrationCapacity.ts",
+    "verify:analytics": "ts-node-dev --transpile-only src/scripts/verifyAnalytics.ts",
+    "verify:rbac": "ts-node-dev --transpile-only src/scripts/verifyRbac.ts",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.7",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.3"
+  }
+}
