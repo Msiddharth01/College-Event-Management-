@@ -12,6 +12,9 @@ import {
   ActiveProfile,
   RegisterStudentPayload,
   RegisterOrganizerPayload,
+  Feedback,
+  SubmitFeedbackPayload,
+  EventRatingsSummary,
 } from '../types';
 
 export const apiClient: AxiosInstance = axios.create({
@@ -102,7 +105,7 @@ export const cancelEvent = async (id: string): Promise<Event> => {
 };
 
 /**
- * Registration Services
+ * Registration & Waitlist Services
  */
 export const registerForEvent = async (studentId: string, eventId: string): Promise<Registration> => {
   const response = await apiClient.post<ApiResponse<Registration>>('/registrations', {
@@ -110,6 +113,22 @@ export const registerForEvent = async (studentId: string, eventId: string): Prom
     eventId,
   });
   return response.data.data;
+};
+
+export interface WaitlistResponse {
+  success: boolean;
+  status: 'registered' | 'waitlisted';
+  waitlistPosition: number | null;
+  message?: string;
+  data: Registration;
+}
+
+export const joinWaitlist = async (studentId: string, eventId: string): Promise<WaitlistResponse> => {
+  const response = await apiClient.post<WaitlistResponse>('/registrations/waitlist', {
+    studentId,
+    eventId,
+  });
+  return response.data;
 };
 
 export const getStudentRegistrations = async (studentId: string): Promise<Registration[]> => {
@@ -132,6 +151,31 @@ export const markAttendance = async (registrationId: string): Promise<Registrati
 };
 
 /**
+ * Feedback & Rating Services
+ */
+export interface EventFeedbackListResponse {
+  success: boolean;
+  total: number;
+  averageRating: number;
+  data: Feedback[];
+}
+
+export const submitFeedback = async (payload: SubmitFeedbackPayload): Promise<Feedback> => {
+  const response = await apiClient.post<ApiResponse<Feedback>>('/feedback', payload);
+  return response.data.data;
+};
+
+export const getEventFeedback = async (eventId: string): Promise<EventFeedbackListResponse> => {
+  const response = await apiClient.get<EventFeedbackListResponse>(`/feedback/event/${eventId}`);
+  return response.data;
+};
+
+export const getStudentFeedback = async (studentId: string): Promise<Feedback[]> => {
+  const response = await apiClient.get<ApiResponse<Feedback[]>>(`/feedback/student/${studentId}`);
+  return response.data.data;
+};
+
+/**
  * Analytics & Reporting Services
  */
 export const getAnalyticsSummary = async (): Promise<AnalyticsSummary[]> => {
@@ -141,6 +185,11 @@ export const getAnalyticsSummary = async (): Promise<AnalyticsSummary[]> => {
 
 export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
   const response = await apiClient.get<ApiResponse<DashboardMetrics>>('/analytics/dashboard');
+  return response.data.data;
+};
+
+export const getEventRatingsAnalytics = async (): Promise<EventRatingsSummary[]> => {
+  const response = await apiClient.get<ApiResponse<EventRatingsSummary[]>>('/analytics/event-ratings');
   return response.data.data;
 };
 

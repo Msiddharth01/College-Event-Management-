@@ -1,11 +1,12 @@
 import { Schema, model, Document, Model, Types } from 'mongoose';
 
-export type RegistrationStatus = 'registered' | 'cancelled' | 'attended';
+export type RegistrationStatus = 'registered' | 'waitlisted' | 'cancelled' | 'attended';
 
 export interface IRegistration extends Document {
   studentId: Types.ObjectId;
   eventId: Types.ObjectId;
   status: RegistrationStatus;
+  waitlistPosition: number | null;
   registeredAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -26,10 +27,14 @@ const registrationSchema: Schema<IRegistration> = new Schema<IRegistration>(
     status: {
       type: String,
       enum: {
-        values: ['registered', 'cancelled', 'attended'],
+        values: ['registered', 'waitlisted', 'cancelled', 'attended'],
         message: '{VALUE} is not a valid registration status',
       },
       default: 'registered',
+    },
+    waitlistPosition: {
+      type: Number,
+      default: null,
     },
     registeredAt: {
       type: Date,

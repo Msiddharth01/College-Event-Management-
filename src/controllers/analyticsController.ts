@@ -3,6 +3,17 @@ import { Registration } from '../models/Registration';
 import { Event } from '../models/Event';
 import { Student } from '../models/Student';
 import { Venue } from '../models/Venue';
+import { Feedback } from '../models/Feedback';
+
+export interface EventRatingsSummary {
+  eventId: string;
+  title: string;
+  status: string;
+  averageRating: number;
+  totalReviews: number;
+  minRating: number;
+  maxRating: number;
+}
 
 export interface EventRegistrationSummary {
   eventId: string;
@@ -143,6 +154,68 @@ export const getDashboardMetrics = async (
     res.status(200).json({
       success: true,
       data: metrics,
+    });
+  } catch (error: unknown) {
+    next(error as Error);
+  }
+};
+
+/**
+ * Aggregation pipeline computing average ratings & review counts per event.
+ * Route: GET /api/analytics/event-ratings
+ * Status: 200 OK
+ */
+export const getEventRatings = async (
+  _req: Request,
+  res: Response<AnalyticsResponse<EventRatingsSummary[]>>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const ratings: EventRatingsSummary[] = await Feedback.aggregate<EventRatingsSummary>([
+      {
+        $group: {
+          _id: '$eventId',
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+          minRating: { $min: '$rating' },
+          maxRating: { $max: '$rating' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'events',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'event',
+        },
+      },
+      {
+        $unwind: '$event',
+      },
+      {
+        $project: {
+          _id: 0,
+          eventId: '$_id',
+          title: '$event.title',
+          status: '$event.status',
+          averageRating: { $round: ['$averageRating', 2] },
+          totalReviews: 1,
+          minRating: 1,
+          maxRating: 1,
+        },
+      },
+      {
+        $sort: {
+          averageRating: -1,
+          totalReviews: -1,
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total: ratings.length,
+      data: ratings,
     });
   } catch (error: unknown) {
     next(error as Error);

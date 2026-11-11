@@ -1,5 +1,5 @@
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
-export type RegistrationStatus = 'registered' | 'cancelled' | 'attended';
+export type RegistrationStatus = 'registered' | 'waitlisted' | 'cancelled' | 'attended';
 
 export interface Student {
   _id: string;
@@ -43,6 +43,11 @@ export interface Event {
   organizerId: Organizer | string;
   venueId: Venue | string;
   activeRegistrationsCount?: number;
+  registeredCount?: number;
+  availableSeats?: number;
+  waitlistCount?: number;
+  averageRating?: number;
+  totalReviews?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -52,10 +57,37 @@ export interface Registration {
   studentId: Student | string;
   eventId: Event | string;
   status: RegistrationStatus;
+  waitlistPosition?: number | null;
   registeredAt: string;
   attendedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface Feedback {
+  _id: string;
+  eventId: string;
+  studentId: Student | string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface SubmitFeedbackPayload {
+  eventId: string;
+  studentId?: string;
+  rating: number;
+  comment?: string;
+}
+
+export interface EventRatingsSummary {
+  eventId: string;
+  title: string;
+  status: EventStatus;
+  averageRating: number;
+  totalReviews: number;
+  minRating: number;
+  maxRating: number;
 }
 
 export interface AnalyticsSummary {

@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { Event, IEvent, EventStatus } from '../models/Event';
 import { Organizer } from '../models/Organizer';
 import { Venue, IVenue } from '../models/Venue';
+import { Registration } from '../models/Registration';
+import { Feedback } from '../models/Feedback';
 import { AppError } from '../middleware/errorHandler';
 
 export interface CreateEventDTO {
@@ -26,9 +28,18 @@ export interface UpdateEventDTO {
   status?: EventStatus;
 }
 
+export interface EnrichedEvent extends Record<string, unknown> {
+  registeredCount: number;
+  activeRegistrationsCount: number;
+  availableSeats: number;
+  waitlistCount: number;
+  averageRating: number;
+  totalReviews: number;
+}
+
 export interface EventResponse {
   success: boolean;
-  data: IEvent | IEvent[];
+  data: IEvent | IEvent[] | EnrichedEvent | EnrichedEvent[];
   message?: string;
   total?: number;
 }
@@ -41,6 +52,80 @@ export interface EventFilterQuery {
   endDate?: string;
   search?: string;
 }
+
+/**
+ * Helper to enrich Event documents with live seat, waitlist, and feedback counts.
+ */
+const enrichEventsWithMetrics = async (events: IEvent[]): Promise<EnrichedEvent[]> => {
+  if (events.length === 0) return [];
+
+  const eventIds = events.map((ev) => ev._id);
+
+  const [regStats, feedbackStats] = await Promise.all([
+    Registration.aggregate<{ _id: unknown; registeredCount: number; waitlistCount: number }>([
+      {
+        $match: {
+          eventId: { $in: eventIds },
+          status: { $in: ['registered', 'attended', 'waitlisted'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$eventId',
+          registeredCount: {
+            $sum: { $cond: [{ $in: ['$status', ['registered', 'attended']] }, 1, 0] },
+          },
+          waitlistCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'waitlisted'] }, 1, 0] },
+          },
+        },
+      },
+    ]),
+    Feedback.aggregate<{ _id: unknown; averageRating: number; totalReviews: number }>([
+      { $match: { eventId: { $in: eventIds } } },
+      {
+        $group: {
+          _id: '$eventId',
+          averageRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+
+  const regMap = new Map<string, { registeredCount: number; waitlistCount: number }>();
+  for (const r of regStats) {
+    regMap.set(String(r._id), {
+      registeredCount: r.registeredCount,
+      waitlistCount: r.waitlistCount,
+    });
+  }
+
+  const fbMap = new Map<string, { averageRating: number; totalReviews: number }>();
+  for (const f of feedbackStats) {
+    fbMap.set(String(f._id), {
+      averageRating: Math.round(f.averageRating * 10) / 10,
+      totalReviews: f.totalReviews,
+    });
+  }
+
+  return events.map((ev) => {
+    const obj = ev.toObject() as unknown as Record<string, unknown>;
+    const stats = regMap.get(ev._id.toString()) || { registeredCount: 0, waitlistCount: 0 };
+    const fb = fbMap.get(ev._id.toString()) || { averageRating: 0, totalReviews: 0 };
+    const availableSeats = Math.max(0, ev.capacity - stats.registeredCount);
+
+    return {
+      ...obj,
+      registeredCount: stats.registeredCount,
+      activeRegistrationsCount: stats.registeredCount,
+      availableSeats,
+      waitlistCount: stats.waitlistCount,
+      averageRating: fb.averageRating,
+      totalReviews: fb.totalReviews,
+    };
+  });
+};
 
 /**
  * List events with query filters (status, organizerId, startDate, endDate),
@@ -86,10 +171,12 @@ export const getEvents = async (
       .populate('venueId', 'name location capacity')
       .sort({ startDate: 1 });
 
+    const enriched = await enrichEventsWithMetrics(events);
+
     res.status(200).json({
       success: true,
-      total: events.length,
-      data: events,
+      total: enriched.length,
+      data: enriched,
     });
   } catch (error: unknown) {
     next(error as Error);
@@ -116,9 +203,11 @@ export const getEventById = async (
       return next(new AppError('Event not found', 404));
     }
 
+    const [enriched] = await enrichEventsWithMetrics([event]);
+
     res.status(200).json({
       success: true,
-      data: event,
+      data: enriched,
     });
   } catch (error: unknown) {
     next(error as Error);

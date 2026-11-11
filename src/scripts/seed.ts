@@ -3,6 +3,7 @@ dotenv.config();
 
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db';
+import { ensureDefaultOrganizer } from '../config/initOrganizer';
 import { Student, IStudent } from '../models/Student';
 import { Organizer, IOrganizer } from '../models/Organizer';
 import { Venue, IVenue } from '../models/Venue';
@@ -56,6 +57,10 @@ export const seedDatabase = async (): Promise<SeedResult> => {
       contactNumber: '+1-555-0199',
     });
     console.log(`Created Organizer: "${organizer.name}" (ID: ${organizer._id})`);
+
+    // Ensure permanent fixed institutional Organizer exists (idempotent upsert)
+    const fixedOrganizer: IOrganizer = await ensureDefaultOrganizer();
+    console.log(`Verified Fixed Organizer: "${fixedOrganizer.name}" (Email: ${fixedOrganizer.email}, ID: ${fixedOrganizer._id})`);
 
     // 2. Insert sample Venue
     console.log('Seeding sample Venue...');

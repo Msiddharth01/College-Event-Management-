@@ -5,6 +5,7 @@ import { Student } from '../models/Student';
 import { Organizer } from '../models/Organizer';
 import { AppError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { ensureDefaultOrganizer, FIXED_ORGANIZER_CREDENTIALS } from '../config/initOrganizer';
 
 export interface RegisterDTO {
   fullName?: string;
@@ -294,32 +295,59 @@ export const login = async (
     let resolvedRollNumber: string | undefined;
     let resolvedYear: number | undefined;
 
-    // 1. Check if user exists in the User collection (contains hashed password)
-    const user = await User.findOne({ email: trimmedEmail }).select('+password');
-    if (user) {
-      if (password && user.password) {
-        const isMatch: boolean = await user.comparePassword(password);
-        if (!isMatch) {
-          return next(new AppError('Invalid password. Please check your credentials.', 401));
-        }
+    // 0. Guarantee fixed institutional Organizer ("organizer@college.edu") can always authenticate
+    if (trimmedEmail === FIXED_ORGANIZER_CREDENTIALS.email) {
+      if (!password) {
+        return next(new AppError('Please provide your password.', 401));
       }
-      resolvedName = user.name;
-      resolvedRole = user.role as 'student' | 'organizer';
-      resolvedDept = user.department;
-      resolvedId = user._id.toString();
 
-      // If user is a student, attach their Student collection ID & metadata
-      if (user.role === 'student') {
-        const student = await Student.findOne({ email: trimmedEmail });
-        if (student) {
-          resolvedId = student._id.toString();
-          resolvedRollNumber = student.rollNumber;
-          resolvedYear = student.year;
+      const organizerDoc = await ensureDefaultOrganizer();
+      const fixedUser = await User.findOne({ email: trimmedEmail }).select('+password');
+      const isMatch = fixedUser
+        ? await fixedUser.comparePassword(password)
+        : password === FIXED_ORGANIZER_CREDENTIALS.password;
+
+      if (!isMatch) {
+        return next(new AppError('Invalid password. Please check your credentials.', 401));
+      }
+
+      resolvedId = organizerDoc._id.toString();
+      resolvedName = organizerDoc.name;
+      resolvedRole = 'organizer';
+      resolvedDept = organizerDoc.department;
+    }
+
+    // 1. Check if user exists in the User collection (contains hashed password)
+    if (!resolvedRole) {
+      const user = await User.findOne({ email: trimmedEmail }).select('+password');
+      if (user) {
+        if (user.password) {
+          if (!password) {
+            return next(new AppError('Please provide your password.', 401));
+          }
+          const isMatch: boolean = await user.comparePassword(password);
+          if (!isMatch) {
+            return next(new AppError('Invalid password. Please check your credentials.', 401));
+          }
         }
-      } else if (user.role === 'organizer') {
-        const organizer = await Organizer.findOne({ email: trimmedEmail });
-        if (organizer) {
-          resolvedId = organizer._id.toString();
+        resolvedName = user.name;
+        resolvedRole = user.role as 'student' | 'organizer';
+        resolvedDept = user.department;
+        resolvedId = user._id.toString();
+
+        // If user is a student, attach their Student collection ID & metadata
+        if (user.role === 'student') {
+          const student = await Student.findOne({ email: trimmedEmail });
+          if (student) {
+            resolvedId = student._id.toString();
+            resolvedRollNumber = student.rollNumber;
+            resolvedYear = student.year;
+          }
+        } else if (user.role === 'organizer') {
+          const organizer = await Organizer.findOne({ email: trimmedEmail });
+          if (organizer) {
+            resolvedId = organizer._id.toString();
+          }
         }
       }
     }

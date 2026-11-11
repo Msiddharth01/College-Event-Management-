@@ -30,6 +30,7 @@ import { StatusTag } from '../components/StatusTag';
 import { Modal } from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 import { UnauthorizedBanner } from '../components/UnauthorizedBanner';
+import { getEventStatus } from '../utils/eventStatus';
 
 interface OrganizerDashboardPageProps {
   onNavigateHome?: () => void;
@@ -78,9 +79,15 @@ export const OrganizerDashboardPage: React.FC<OrganizerDashboardPageProps> = ({ 
       setVenues(vens);
       setOrganizers(orgs);
 
-      // Default dropdown selection if available
+      // Default dropdown selection to authenticated organizer if present
       if (orgs.length > 0 && !formData.organizerId) {
-        setFormData((prev) => ({ ...prev, organizerId: orgs[0]._id }));
+        const matchedOrg = orgs.find(
+          (o) => o._id === activeUser?.id || o.email === activeUser?.email
+        );
+        setFormData((prev) => ({
+          ...prev,
+          organizerId: matchedOrg ? matchedOrg._id : orgs[0]._id,
+        }));
       }
       if (vens.length > 0 && !formData.venueId) {
         setFormData((prev) => ({ ...prev, venueId: vens[0]._id }));
@@ -90,7 +97,7 @@ export const OrganizerDashboardPage: React.FC<OrganizerDashboardPageProps> = ({ 
     } finally {
       setLoading(false);
     }
-  }, [formData.organizerId, formData.venueId]);
+  }, [formData.organizerId, formData.venueId, activeUser?.id, activeUser?.email]);
 
   useEffect(() => {
     fetchData();
@@ -339,7 +346,7 @@ export const OrganizerDashboardPage: React.FC<OrganizerDashboardPageProps> = ({ 
                         <span className="text-slate-400"> / {ev.capacity}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <StatusTag status={ev.status} size="sm" />
+                        <StatusTag status={getEventStatus(ev)} size="sm" />
                       </td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                         <button
@@ -546,7 +553,15 @@ export const OrganizerDashboardPage: React.FC<OrganizerDashboardPageProps> = ({ 
                     </div>
 
                     <div className="flex items-center space-x-3">
-                      <StatusTag status={reg.status} size="sm" />
+                      <StatusTag
+                        status={reg.status}
+                        label={
+                          reg.status === 'waitlisted'
+                            ? `Waitlisted #${reg.waitlistPosition ?? 1}`
+                            : undefined
+                        }
+                        size="sm"
+                      />
                       {reg.status === 'registered' && (
                         <button
                           onClick={() => handleMarkAttendance(reg._id)}

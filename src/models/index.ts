@@ -3,3 +3,4 @@ export * from './Organizer';
 export * from './Venue';
 export * from './Event';
 export * from './Registration';
+export * from './Feedback';

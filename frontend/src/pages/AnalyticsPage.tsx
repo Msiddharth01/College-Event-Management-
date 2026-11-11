@@ -8,9 +8,14 @@ import {
   TrendingUp,
   RefreshCw,
   AlertCircle,
+  Star,
 } from 'lucide-react';
-import { AnalyticsSummary, DashboardMetrics } from '../types';
-import { getAnalyticsSummary, getDashboardMetrics } from '../api/client';
+import { AnalyticsSummary, DashboardMetrics, EventRatingsSummary } from '../types';
+import {
+  getAnalyticsSummary,
+  getDashboardMetrics,
+  getEventRatingsAnalytics,
+} from '../api/client';
 import { StatusTag } from '../components/StatusTag';
 import { useAuth } from '../context/AuthContext';
 import { UnauthorizedBanner } from '../components/UnauthorizedBanner';
@@ -22,6 +27,7 @@ interface AnalyticsPageProps {
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigateHome }) => {
   const { user: activeUser } = useAuth();
   const [summary, setSummary] = useState<AnalyticsSummary[]>([]);
+  const [ratingsSummary, setRatingsSummary] = useState<EventRatingsSummary[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,14 +36,19 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigateHome }) 
     try {
       setLoading(true);
       setError(null);
-      const [sumData, metData] = await Promise.all([
+      const [sumData, metData, ratingsData] = await Promise.all([
         getAnalyticsSummary().catch((e: any) => {
           console.warn('Events summary returned empty or non-critical error:', e?.response || e?.message || e);
           return [] as AnalyticsSummary[];
         }),
         getDashboardMetrics(),
+        getEventRatingsAnalytics().catch((e: any) => {
+          console.warn('Event ratings returned empty or non-critical error:', e?.response || e?.message || e);
+          return [] as EventRatingsSummary[];
+        }),
       ]);
       setSummary(Array.isArray(sumData) ? sumData : []);
+      setRatingsSummary(Array.isArray(ratingsData) ? ratingsData : []);
       setMetrics(metData);
     } catch (err: any) {
       console.error('Analytics connection error:', err?.response || err?.message || err);
@@ -241,6 +252,86 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigateHome }) 
                                   : 'bg-brand-600'
                               }`}
                               style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Post-Event Feedback & Rating Aggregation Section */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+            <h2 className="text-base font-bold text-slate-800">
+              Post-Event Feedback & Rating Analytics
+            </h2>
+          </div>
+          <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+            {ratingsSummary.length} Rated Events
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center">
+            <RefreshCw className="w-7 h-7 text-brand-600 animate-spin mx-auto mb-2" />
+            <p className="text-xs font-medium text-slate-500">Aggregating student feedback...</p>
+          </div>
+        ) : ratingsSummary.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-xs">
+            <Star className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            No student feedback or ratings submitted yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/75 border-b border-slate-100 text-slate-500 uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="px-6 py-3.5">Event Title</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Average Rating</th>
+                  <th className="px-6 py-3.5">Total Reviews</th>
+                  <th className="px-6 py-3.5">Rating Score</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                {ratingsSummary.map((item) => {
+                  const scorePct = Math.min(Math.round((item.averageRating / 5) * 100), 100);
+                  return (
+                    <tr key={item.eventId} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-4 font-bold text-slate-900">{item.title}</td>
+                      <td className="px-6 py-4">
+                        <StatusTag status={item.status} size="sm" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-1.5">
+                          <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                          <span className="font-extrabold text-slate-800 text-sm">
+                            {item.averageRating.toFixed(1)}
+                          </span>
+                          <span className="text-slate-400 text-[11px]">/ 5.0</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {item.totalReviews} {item.totalReviews === 1 ? 'review' : 'reviews'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="w-40 space-y-1">
+                          <div className="flex justify-between text-[11px] text-slate-500">
+                            <span>Range: {item.minRating}–{item.maxRating}★</span>
+                            <span>{scorePct}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-amber-400 transition-all duration-300"
+                              style={{ width: `${scorePct}%` }}
                             />
                           </div>
                         </div>

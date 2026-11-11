@@ -9,6 +9,7 @@ import studentRoutes from './routes/studentRoutes';
 import eventRoutes from './routes/eventRoutes';
 import registrationRoutes from './routes/registrationRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import feedbackRoutes from './routes/feedbackRoutes';
 
 // Import error-handling middleware
 import { notFoundHandler } from './middleware/notFound';
@@ -37,6 +38,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Catch unhandled routes and forward to error handler
 app.use(notFoundHandler);

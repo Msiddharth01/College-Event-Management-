@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createRegistration,
+  joinWaitlist,
   cancelRegistration,
   markAttendance,
   getRegistrations,
@@ -17,7 +18,14 @@ router.route('/')
   .post(requireRole(['student']), createRegistration)
   .get(getRegistrations);
 
-// PATCH /api/registrations/:id/cancel - Soft-cancel registration
+// POST /api/registrations/waitlist - Join waitlist for a full event (Student role required)
+router.post('/waitlist', requireRole(['student']), joinWaitlist);
+
+// DELETE /api/registrations/:id - Cancel registration (triggers auto-promotion & socket update)
+router.route('/:id')
+  .delete(cancelRegistration);
+
+// PATCH /api/registrations/:id/cancel - Soft-cancel registration (triggers auto-promotion & socket update)
 router.route('/:id/cancel')
   .patch(cancelRegistration);
 

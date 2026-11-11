@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getEventRegistrationSummary,
   getDashboardMetrics,
+  getEventRatings,
 } from '../controllers/analyticsController';
 import { requireRole } from '../middleware/authMiddleware';
 
@@ -15,6 +16,9 @@ router.get('/events-summary', getEventRegistrationSummary);
 
 // GET /api/analytics/dashboard - High-level system dashboard counts
 router.get('/dashboard', getDashboardMetrics);
+
+// GET /api/analytics/event-ratings - Aggregated post-event feedback & rating pipeline
+router.get('/event-ratings', getEventRatings);
 
 export default router;
 
